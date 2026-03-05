@@ -51,13 +51,11 @@ from urllib.parse import urlparse
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 LOG_PATH = "/var/log/nginx/counter_access.log"
-DB_PATH  = "/home/gu/counter/counter.db"
+DB_PATH = "/home/gu/counter/counter.db"
 
 # ── Log parsing ───────────────────────────────────────────────────────────────
 
-LOG_PATTERN = re.compile(
-    r'(\S+)\s+"GET (\S+) HTTP/[\d.]+"\s+"([^"]*)"'
-)
+LOG_PATTERN = re.compile(r'(\S+)\s+"GET (\S+) HTTP/[\d.]+"\s+"([^"]*)"')
 
 
 def extract_domain(url: str) -> str:
@@ -65,7 +63,7 @@ def extract_domain(url: str) -> str:
         return "(no referrer)"
     try:
         domain = urlparse(url).netloc
-        return domain if domain else "(unknown)"
+        return domain.lower() if domain else url.lower()
     except Exception:
         return "(unknown)"
 
@@ -76,6 +74,7 @@ def parse_pixel_name(path_part: str) -> str:
 
 
 # ── Database ──────────────────────────────────────────────────────────────────
+
 
 def open_db(db_path: str) -> sqlite3.Connection:
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -103,20 +102,23 @@ def open_db(db_path: str) -> sqlite3.Connection:
 def load_state(conn: sqlite3.Connection, log_path: str):
     """Return (inode, offset) for log_path, or (None, 0) if unseen."""
     row = conn.execute(
-        "SELECT inode, offset FROM log_state WHERE log_path = ?",
-        (log_path,)
+        "SELECT inode, offset FROM log_state WHERE log_path = ?", (log_path,)
     ).fetchone()
     return (row[0], row[1]) if row else (None, 0)
 
 
-def save_state(conn: sqlite3.Connection, log_path: str,
-               inode: int, offset: int) -> None:
-    conn.execute("""
+def save_state(
+    conn: sqlite3.Connection, log_path: str, inode: int, offset: int
+) -> None:
+    conn.execute(
+        """
         INSERT INTO log_state (log_path, inode, offset)
         VALUES (?, ?, ?)
         ON CONFLICT(log_path) DO UPDATE SET inode=excluded.inode,
                                             offset=excluded.offset
-    """, (log_path, inode, offset))
+    """,
+        (log_path, inode, offset),
+    )
     conn.commit()
 
 
@@ -127,19 +129,23 @@ def clear_state(conn: sqlite3.Connection, log_path: str) -> None:
 
 def upsert_hits(conn: sqlite3.Connection, batch: dict) -> None:
     """batch: { (pixel, domain, date): count }"""
-    conn.executemany("""
+    conn.executemany(
+        """
         INSERT INTO hits (pixel, domain, date, count) VALUES (?, ?, ?, ?)
         ON CONFLICT(pixel, domain, date) DO UPDATE SET count = count + excluded.count
-    """, [(pixel, domain, date, count)
-          for (pixel, domain, date), count in batch.items()])
+    """,
+        [
+            (pixel, domain, date, count)
+            for (pixel, domain, date), count in batch.items()
+        ],
+    )
     conn.commit()
 
 
 # ── Core processing ───────────────────────────────────────────────────────────
 
-def process_file(conn: sqlite3.Connection,
-                 file_path: str,
-                 start_offset: int) -> int:
+
+def process_file(conn: sqlite3.Connection, file_path: str, start_offset: int) -> int:
     """
     Read file_path from start_offset to EOF, accumulate hit counts into the
     database, and return the new EOF offset.
@@ -160,7 +166,7 @@ def process_file(conn: sqlite3.Connection,
             date, path_part, referrer = match.groups()
             # Normalise to YYYY-MM-DD (log emits full ISO timestamp)
             date = date[:10]
-            pixel  = parse_pixel_name(path_part)
+            pixel = parse_pixel_name(path_part)
             domain = extract_domain(referrer)
             batch[(pixel, domain, date)] += 1
 
@@ -170,8 +176,10 @@ def process_file(conn: sqlite3.Connection,
         upsert_hits(conn, batch)
 
     lines_processed = sum(batch.values())
-    print(f"  Processed {lines_processed} hit(s) from '{file_path}'"
-          f"  (offset {start_offset} -> {new_offset})")
+    print(
+        f"  Processed {lines_processed} hit(s) from '{file_path}'"
+        f"  (offset {start_offset} -> {new_offset})"
+    )
     if skipped:
         print(f"  Skipped {skipped} unrecognised line(s).")
 
@@ -190,17 +198,19 @@ def run_normal(conn: sqlite3.Connection, log_path: str) -> None:
     if stored_inode is not None and stored_inode != current_inode:
         # The inode changed but --rotated was never called (e.g. postrotate
         # is not yet configured). Start the new file from the top.
-        print("  Warning: inode changed since last run. "
-              "Was --rotated called at rotation time? Starting from offset 0.")
+        print(
+            "  Warning: inode changed since last run. "
+            "Was --rotated called at rotation time? Starting from offset 0."
+        )
         stored_offset = 0
 
     new_offset = process_file(conn, log_path, stored_offset)
     save_state(conn, log_path, current_inode, new_offset)
 
 
-def run_rotated(conn: sqlite3.Connection,
-                rotated_path: str,
-                live_log_path: str) -> None:
+def run_rotated(
+    conn: sqlite3.Connection, rotated_path: str, live_log_path: str
+) -> None:
     """
     Drain the rotated file from its last saved offset to EOF, then clear
     the state entry for the live log so the next normal run starts at 0.
@@ -222,6 +232,7 @@ def run_rotated(conn: sqlite3.Connection,
 
 # ── Report ────────────────────────────────────────────────────────────────────
 
+
 def print_report(conn: sqlite3.Connection) -> None:
     rows = conn.execute("""
         SELECT pixel, domain, SUM(count) as count
@@ -239,20 +250,20 @@ def print_report(conn: sqlite3.Connection) -> None:
         articles[pixel].append((domain, count))
 
     article_totals = {
-        pixel: sum(c for _, c in domains)
-        for pixel, domains in articles.items()
+        pixel: sum(c for _, c in domains) for pixel, domains in articles.items()
     }
 
     print("=" * 62)
     print("REPUBLICATION HIT REPORT")
     print("=" * 62)
 
-    for pixel, total in sorted(article_totals.items(),
-                               key=lambda x: x[1], reverse=True):
+    for pixel, total in sorted(
+        article_totals.items(), key=lambda x: x[1], reverse=True
+    ):
         print(f"\nArticle : {pixel}")
         print(f"Total   : {total} hit(s)")
         print(f"  {'Referring site':<44} {'Hits':>6}")
-        print(f"  {'-'*44} {'-'*6}")
+        print(f"  {'-' * 44} {'-' * 6}")
         for domain, count in articles[pixel]:
             print(f"  {domain:<44} {count:>6}")
 
@@ -264,20 +275,22 @@ def print_report(conn: sqlite3.Connection) -> None:
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Pixel tracking log analyser with SQLite state tracking."
     )
-    parser.add_argument("--log",     default=LOG_PATH,
-                        help="Path to the live log file.")
-    parser.add_argument("--rotated", metavar="PATH",
-                        help="Path to the just-rotated log file.")
-    parser.add_argument("--db",      default=DB_PATH,
-                        help="Path to the SQLite database.")
-    parser.add_argument("--report",  action="store_true",
-                        help="Print the accumulated report and exit.")
-    parser.add_argument("--reset",   action="store_true",
-                        help="Wipe all data and state (use with care).")
+    parser.add_argument("--log", default=LOG_PATH, help="Path to the live log file.")
+    parser.add_argument(
+        "--rotated", metavar="PATH", help="Path to the just-rotated log file."
+    )
+    parser.add_argument("--db", default=DB_PATH, help="Path to the SQLite database.")
+    parser.add_argument(
+        "--report", action="store_true", help="Print the accumulated report and exit."
+    )
+    parser.add_argument(
+        "--reset", action="store_true", help="Wipe all data and state (use with care)."
+    )
     args = parser.parse_args()
 
     conn = open_db(args.db)
