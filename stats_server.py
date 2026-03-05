@@ -16,9 +16,9 @@ Then visit e.g.:
 import argparse
 import os
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime
 
-from flask import Flask, abort
+from flask import Flask, abort, request
 
 # ── Sites to exclude from the report ─────────────────────────────────────────
 # Add any referring domains here that you want to hide from the stats view.
@@ -43,7 +43,7 @@ app.config["DB_PATH"] = DEFAULT_DB_PATH
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 
-def query_hits(db_path: str, date_from: str, date_to: str) -> list:
+def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) -> list:
     if not os.path.exists(db_path):
         return []
 
@@ -80,7 +80,7 @@ def query_hits(db_path: str, date_from: str, date_to: str) -> list:
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
 
-def render_page(rows: list, date_from: str, date_to: str) -> str:
+def render_page(rows: list, date_from: str, date_to: str, exclude_sites: list) -> str:
     fmt = lambda d: datetime.strptime(d, "%Y-%m-%d").strftime("%-d %B %Y")
     total_hits = sum(r["hits"] for r in rows)
 
@@ -322,8 +322,186 @@ def stats(from_str: str, to_str: str):
     if date_from > date_to:
         abort(400, "date_from must be on or before date_to.")
 
-    rows = query_hits(app.config["DB_PATH"], date_from, date_to)
-    return render_page(rows, date_from, date_to)
+    # Read exclusions from query string; fall back to default list
+    exclude_sites = request.args.getlist("exclude") or list(EXCLUDE_SITES)
+
+    rows = query_hits(app.config["DB_PATH"], date_from, date_to, exclude_sites)
+    return render_page(rows, date_from, date_to, exclude_sites)
+
+
+@app.route("/stats/")
+@app.route("/stats")
+def stats_form():
+    today = date.today().strftime("%Y-%m-%d")
+    default_excludes = "\n".join(EXCLUDE_SITES)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Republication Stats</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+        :root {{
+            --ink:    #0f0f0f;
+            --paper:  #f5f0e8;
+            --rule:   #c8bfaa;
+            --accent: #c1370a;
+            --muted:  #7a7060;
+        }}
+
+        body {{
+            background: var(--paper);
+            color: var(--ink);
+            font-family: 'IBM Plex Sans', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 4rem 1.5rem;
+        }}
+
+        .card {{
+            width: 100%;
+            max-width: 480px;
+        }}
+
+        .kicker {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 0.6rem;
+        }}
+
+        h1 {{
+            font-family: 'Playfair Display', serif;
+            font-size: 2.2rem;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin-bottom: 2rem;
+            padding-bottom: 1.2rem;
+            border-bottom: 2px solid var(--ink);
+        }}
+
+        .field {{
+            margin-bottom: 1.5rem;
+        }}
+
+        label {{
+            display: block;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.68rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 0.4rem;
+        }}
+
+        label .required {{
+            color: var(--accent);
+            margin-left: 0.2rem;
+        }}
+
+        input[type="date"],
+        textarea {{
+            width: 100%;
+            background: white;
+            border: 1px solid var(--rule);
+            border-radius: 2px;
+            padding: 0.6rem 0.75rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--ink);
+            transition: border-color 0.15s;
+            appearance: none;
+        }}
+
+        input[type="date"]:focus,
+        textarea:focus {{
+            outline: none;
+            border-color: var(--accent);
+        }}
+
+        textarea {{
+            resize: vertical;
+            min-height: 90px;
+            line-height: 1.6;
+        }}
+
+        .hint {{
+            margin-top: 0.35rem;
+            font-size: 0.72rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }}
+
+        button {{
+            margin-top: 0.5rem;
+            width: 100%;
+            background: var(--ink);
+            color: var(--paper);
+            border: none;
+            border-radius: 2px;
+            padding: 0.8rem 1.5rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.15s;
+        }}
+
+        button:hover {{
+            background: var(--accent);
+        }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <p class="kicker">Republication Analytics</p>
+        <h1>Run a Stats Report</h1>
+        <form id="statsForm">
+            <div class="field">
+                <label>Start date <span class="required">*</span></label>
+                <input type="date" id="date_from" value="{today}" required>
+            </div>
+            <div class="field">
+                <label>End date <span class="required">*</span></label>
+                <input type="date" id="date_to" value="{today}" required>
+            </div>
+            <div class="field">
+                <label>Exclude referrers</label>
+                <textarea id="excludes" placeholder="one domain per line">{default_excludes}</textarea>
+                <p class="hint">One domain per line. Leave blank to include all referrers.</p>
+            </div>
+            <button type="submit">View Report &rarr;</button>
+        </form>
+    </div>
+    <script>
+        document.getElementById('statsForm').addEventListener('submit', function(e) {{
+            e.preventDefault();
+            const from = document.getElementById('date_from').value.replace(/-/g, '');
+            const to   = document.getElementById('date_to').value.replace(/-/g, '');
+            const excludes = document.getElementById('excludes').value
+                .split('\\n')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+
+            const params = new URLSearchParams();
+            excludes.forEach(site => params.append('exclude', site));
+
+            const query = params.toString() ? '?' + params.toString() : '';
+            window.location.href = `/stats/${{from}}/${{to}}${{query}}`;
+        }});
+    </script>
+</body>
+</html>"""
 
 
 @app.route("/")
