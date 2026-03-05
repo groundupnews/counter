@@ -495,10 +495,7 @@ def stats_report(from_str: str, to_str: str):
 
     exclude_sites = request.args.getlist("exclude") or ""
     rows = query_hits(app.config["DB_PATH"], date_from, date_to, exclude_sites)
-    return render_form()
-
-
-#    return render_report(rows, date_from, date_to, exclude_sites)
+    return render_report(rows, date_from, date_to, exclude_sites)
 
 
 @app.route("/")
