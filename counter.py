@@ -22,6 +22,7 @@ import argparse
 import os
 import sqlite3
 from datetime import date, datetime
+from analyze_pixel import DB_PATH
 
 from flask import Flask, abort, make_response, request
 
@@ -31,13 +32,13 @@ from flask import Flask, abort, make_response, request
 EXCLUDE_SITES = [
     "groundup.org.za",
     "www.groundup.org.za",
+    "groundup.news",
+    "www.groundup.news",
 ]
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-DEFAULT_DB_PATH = "/var/lib/pixel-tracker/pixel_hits.db"
-DEFAULT_PORT = 5000
-TOP_N = 50
+TOP_N = 200
 
 # ── Tracking pixel ────────────────────────────────────────────────────────────
 # Complete binary content of a 1x1 transparent GIF — fixed at startup,
@@ -54,7 +55,7 @@ TRANSPARENT_GIF = (
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
-app.config["DB_PATH"] = DEFAULT_DB_PATH
+app.config["DB_PATH"] = DB_PATH
 
 
 # ── Pixel route ───────────────────────────────────────────────────────────────
@@ -492,7 +493,7 @@ def stats_report(from_str: str, to_str: str):
     if date_from > date_to:
         abort(400, "date_from must be on or before date_to.")
 
-    exclude_sites = request.args.getlist("exclude") or list(EXCLUDE_SITES)
+    exclude_sites = request.args.getlist("exclude") or ""
     rows = query_hits(app.config["DB_PATH"], date_from, date_to, exclude_sites)
     return render_form()
 
@@ -512,15 +513,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Pixel counter — serves tracking pixels and stats reports."
     )
-    parser.add_argument(
-        "--db", default=DEFAULT_DB_PATH, help="Path to the SQLite database."
-    )
-    parser.add_argument(
-        "--port",
-        default=DEFAULT_PORT,
-        type=int,
-        help="Port to listen on (default: 5000).",
-    )
+    parser.add_argument("--db", default=DB_PATH, help="Path to the SQLite database.")
     args = parser.parse_args()
 
     app.config["DB_PATH"] = args.db
