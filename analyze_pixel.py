@@ -244,6 +244,7 @@ def print_report(conn: sqlite3.Connection) -> None:
     rows = conn.execute("""
         SELECT pixel, domain, SUM(count) as count
         FROM hits
+        WHERE pixel NOT IN ('robots.txt', '.env')
         GROUP BY pixel, domain
         ORDER BY pixel, SUM(count) DESC
     """).fetchall()
