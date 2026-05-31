@@ -80,6 +80,8 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
 
     conn = sqlite3.connect(db_path)
 
+    EXCLUDE_PIXELS = ("robots.txt", ".env")
+
     placeholders = ",".join("?" * len(exclude_sites))
     exclude_clause = f"AND domain NOT IN ({placeholders})" if exclude_sites else ""
 
@@ -88,12 +90,13 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
         SELECT pixel, domain, SUM(count) AS total
         FROM hits
         WHERE date >= ? AND date <= ?
+        AND pixel NOT IN ({",".join("?" * len(EXCLUDE_PIXELS))})
         {exclude_clause}
         GROUP BY pixel, domain
         ORDER BY total DESC
         LIMIT {TOP_N}
     """,
-        (date_from, date_to, *exclude_sites),
+        (date_from, date_to, *EXCLUDE_PIXELS, *exclude_sites),
     ).fetchall()
 
     conn.close()
