@@ -55,8 +55,14 @@ DB_PATH = "/home/gu/counter/counter.db"
 
 # ── Log parsing ───────────────────────────────────────────────────────────────
 
-LOG_PATTERN = re.compile(r'(\S+)\s+"GET (\S+) HTTP/[\d.]+"\s+"([^"]*)"')
+LOG_PATTERN = re.compile(
+    r'(\S+)\s+"GET (\S+) HTTP/[\d.]+"\s+"([^"]*)"\s+(\d{3})\s+"([^"]*)"'
+)
 
+BOT_PATTERN = re.compile(
+    r'bot|crawler|spider|crawl|slurp|scrapy|wget|curl|python-requests|httpclient',
+    re.IGNORECASE,
+)
 
 def extract_domain(url: str) -> str:
     if not url or url == "-":
@@ -156,20 +162,21 @@ def process_file(conn: sqlite3.Connection, file_path: str, start_offset: int) ->
     with open(file_path, encoding="utf-8", errors="replace") as fh:
         fh.seek(start_offset)
         for line in fh:
-            line = line.strip()
-            if not line:
-                continue
             match = LOG_PATTERN.search(line)
             if not match:
                 skipped += 1
                 continue
-            date, path_part, referrer = match.groups()
-            # Normalise to YYYY-MM-DD (log emits full ISO timestamp)
+            date, path_part, referrer, status, user_agent = match.groups()
+            if status == "403":
+                skipped += 1
+                continue
+            if BOT_PATTERN.search(user_agent):
+                skipped += 1
+                continue
             date = date[:10]
             pixel = parse_pixel_name(path_part)
             domain = extract_domain(referrer)
             batch[(pixel, domain, date)] += 1
-
         new_offset = fh.tell()
 
     if batch:
@@ -181,7 +188,7 @@ def process_file(conn: sqlite3.Connection, file_path: str, start_offset: int) ->
         f"  (offset {start_offset} -> {new_offset})"
     )
     if skipped:
-        print(f"  Skipped {skipped} unrecognised line(s).")
+        print(f"  Skipped {skipped} line(s).")
 
     return new_offset
 
