@@ -92,6 +92,7 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
         WHERE date >= ? AND date <= ?
         AND pixel NOT IN ({",".join("?" * len(EXCLUDE_PIXELS))})
         {exclude_clause}
+        AND domain != '(no referrer)'
         GROUP BY pixel, domain
         ORDER BY total DESC
         LIMIT {TOP_N}
