@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block extra_style %}
+body { padding: 3rem 1.5rem 6rem; }
+
+header {
+    max-width: var(--col-w);
+    margin: 0 auto 3rem;
+    border-top: 3px solid var(--ink);
+    padding-top: 1.5rem;
+}
+
+h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    margin-bottom: 1rem;
+}
+
+.meta {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--rule);
+    padding-top: 0.9rem;
+    margin-top: 0.9rem;
+}
+
+.meta-item {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+}
+
+.meta-item strong { color: var(--ink); font-weight: 500; }
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.back-link:hover { text-decoration: underline; }
+
+main { max-width: var(--col-w); margin: 0 auto; }
+
+table { width: 100%; border-collapse: collapse; }
+
+thead tr { border-bottom: 2px solid var(--ink); }
+
+th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 0.75rem 0.6rem;
+    text-align: left;
+    font-weight: 500;
+}
+
+th.hits, td.hits { text-align: right; }
+th.rank, td.rank { text-align: right; width: 2.5rem; }
+
+tbody tr {
+    border-bottom: 1px solid var(--rule);
+    transition: background 0.12s;
+}
+
+tbody tr:hover { background: rgba(193, 55, 10, 0.04); }
+
+td { padding: 0.75rem; font-size: 0.875rem; vertical-align: middle; }
+
+td.rank {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--rule);
+}
+
+td.label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+td.referrer { color: var(--accent); font-size: 0.85rem; }
+
+td.hits {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+tr.empty-row td {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-style: italic;
+}
+
+footer {
+    max-width: var(--col-w);
+    margin: 2.5rem auto 0;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+}
+{% endblock %}
+
+{% block content %}
+<header>
+    <p class="kicker">Republication Analytics</p>
+    <h1>Top {{ top_n }} Republished Articles</h1>
+    <div class="meta">
+        <span class="meta-item">Period &nbsp;<strong>{{ date_from_label }} &ndash; {{ date_to_label }}</strong></span>
+        <span class="meta-item">Articles &nbsp;<strong>{{ rows | length }}</strong></span>
+        <span class="meta-item">Total hits &nbsp;<strong>{{ "{:,}".format(total_hits) }}</strong></span>
+    </div>
+</header>
+<main>
+    <a class="back-link" href="/stats/">&larr; New report</a>
+    <table>
+        <thead>
+            <tr>
+                <th class="rank">#</th>
+                <th>Article</th>
+                <th>Referring site</th>
+                <th class="hits">Hits</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="rank">{{ loop.index }}</td>
+                <td class="label">{{ row.label }}</td>
+                <td class="referrer">{{ row.referrer }}</td>
+                <td class="hits">{{ "{:,}".format(row.hits) }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row">
+                <td colspan="4">No hits found for this date range.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</main>
+<footer>
+    Generated {{ generated_at }} UTC
+    &nbsp;&middot;&nbsp; Excluding: {{ exclude_sites | join(', ') if exclude_sites else "nothing" }}
+</footer>
+{% endblock %}
