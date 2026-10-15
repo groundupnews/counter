@@ -51,7 +51,7 @@ from urllib.parse import urlparse
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 LOG_PATH = "/var/log/nginx/counter_access.log"
-DB_PATH = "/home/gu/counter/counter.db"
+DB_PATH = "/home/groundup/counter/counter.db"
 
 # ── Log parsing ───────────────────────────────────────────────────────────────
 
