@@ -20,7 +20,7 @@ import sqlite3
 import sys
 from datetime import datetime
 
-DB_PATH = "/home/gu/counter/counter.db"
+DB_PATH = "/home/groundup/counter/counter.db"
 
 
 def parse_arg_date(s: str) -> str:
