@@ -83,7 +83,9 @@ def parse_pixel_name(path_part: str) -> str:
 
 
 def open_db(db_path: str) -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    dirname = os.path.dirname(db_path)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript("""
