@@ -515,6 +515,7 @@ def main():
         description="Pixel counter — serves tracking pixels and stats reports."
     )
     parser.add_argument("--db", default=DB_PATH, help="Path to the SQLite database.")
+    parser.add_argument("--port", type=int, default=5000, help="Port to listen on.")
     args = parser.parse_args()
 
     app.config["DB_PATH"] = args.db
