@@ -163,6 +163,10 @@ footer {
 </main>
 <footer>
     Generated {{ generated_at }} UTC
+    {% if include_sites %}
+    &nbsp;&middot;&nbsp; Including: {{ include_sites | join(', ') }}
+    {% else %}
     &nbsp;&middot;&nbsp; Excluding: {{ exclude_sites | join(', ') if exclude_sites else "nothing" }}
+    {% endif %}
 </footer>
 {% endblock %}

@@ -78,7 +78,13 @@ def serve_pixel(pixel_name):
 # ── Stats data ────────────────────────────────────────────────────────────────
 
 
-def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) -> list:
+def query_hits(
+    db_path: str,
+    date_from: str,
+    date_to: str,
+    exclude_sites: list,
+    include_sites: list,
+) -> list:
     if not os.path.exists(db_path):
         return []
 
@@ -86,8 +92,16 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
 
     EXCLUDE_PIXELS = ("robots.txt", ".env")
 
-    placeholders = ",".join("?" * len(exclude_sites))
-    exclude_clause = f"AND domain NOT IN ({placeholders})" if exclude_sites else ""
+    exclude_clause = (
+        f"AND h.domain NOT IN ({','.join('?' * len(exclude_sites))})"
+        if exclude_sites
+        else ""
+    )
+    include_clause = (
+        f"AND h.domain IN ({','.join('?' * len(include_sites))})"
+        if include_sites
+        else ""
+    )
 
     rows = conn.execute(
         f"""
@@ -102,12 +116,13 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
         WHERE h.date >= ? AND h.date <= ?
         AND h.pixel NOT IN ({",".join("?" * len(EXCLUDE_PIXELS))})
         {exclude_clause}
+        {include_clause}
         AND h.domain != '(no referrer)'
         GROUP BY h.pixel, h.domain
         ORDER BY total DESC
         LIMIT {TOP_N}
     """,
-        (date_from, date_to, *EXCLUDE_PIXELS, *exclude_sites),
+        (date_from, date_to, *EXCLUDE_PIXELS, *exclude_sites, *include_sites),
     ).fetchall()
 
     conn.close()
@@ -154,7 +169,8 @@ def stats_report(from_str: str, to_str: str):
         abort(400, "date_from must be on or before date_to.")
 
     exclude_sites = request.args.getlist("exclude") or ""
-    rows = query_hits(app.config["DB_PATH"], date_from, date_to, exclude_sites)
+    include_sites = request.args.getlist("include") or ""
+    rows = query_hits(app.config["DB_PATH"], date_from, date_to, exclude_sites, include_sites)
 
     fmt = lambda d: datetime.strptime(d, "%Y-%m-%d").strftime("%-d %B %Y")
     return render_template(
@@ -165,6 +181,7 @@ def stats_report(from_str: str, to_str: str):
         date_to_label=fmt(date_to),
         total_hits=sum(r["hits"] for r in rows),
         exclude_sites=exclude_sites,
+        include_sites=include_sites,
         generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
     )
 

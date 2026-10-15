@@ -98,6 +98,11 @@ button:hover { background: var(--accent); }
             <textarea id="excludes" placeholder="one domain per line">{{ default_excludes | join('\n') }}</textarea>
             <p class="hint">One domain per line. Leave blank to include all referrers.</p>
         </div>
+        <div class="field">
+            <label>Include referrers</label>
+            <textarea id="includes" placeholder="one domain per line"></textarea>
+            <p class="hint">One domain per line. Leave blank to show all referrers. If filled in, only these referrers will be shown.</p>
+        </div>
         <button type="submit">View Report &rarr;</button>
     </form>
 </div>
@@ -113,8 +118,13 @@ button:hover { background: var(--accent); }
             .split('\n')
             .map(s => s.trim())
             .filter(s => s.length > 0);
+        const includes = document.getElementById('includes').value
+            .split('\n')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
         const params = new URLSearchParams();
         excludes.forEach(site => params.append('exclude', site));
+        includes.forEach(site => params.append('include', site));
         const query = params.toString() ? '?' + params.toString() : '';
         window.location.href = `/stats/${from}/${to}${query}`;
     });
