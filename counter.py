@@ -20,6 +20,7 @@ Via Gunicorn:
 
 import argparse
 import os
+import re
 import sqlite3
 from datetime import date, datetime
 from analyze_pixel import DB_PATH
@@ -39,6 +40,10 @@ EXCLUDE_SITES = [
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 TOP_N = 200
+
+# Pixel labels for republished articles are prefixed with the article's pk,
+# e.g. "17291_e_tired-waiting-for-government-pe".
+LABEL_PK = re.compile(r"^(\d+)_")
 
 # ── Tracking pixel ────────────────────────────────────────────────────────────
 # Complete binary content of a 1x1 transparent GIF — fixed at startup,
@@ -102,14 +107,19 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
 
     conn.close()
 
-    return [
-        {
-            "label": os.path.splitext(pixel)[0],
-            "referrer": domain,
-            "hits": total,
-        }
-        for pixel, domain, total in rows
-    ]
+    results = []
+    for pixel, domain, total in rows:
+        label = os.path.splitext(pixel)[0]
+        match = LABEL_PK.match(label)
+        results.append(
+            {
+                "label": label,
+                "pk": match.group(1) if match else None,
+                "referrer": domain,
+                "hits": total,
+            }
+        )
+    return results
 
 
 # ── Stats routes ──────────────────────────────────────────────────────────────
