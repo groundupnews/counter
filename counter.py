@@ -21,8 +21,9 @@ Via Gunicorn:
 import argparse
 import os
 import re
+import sqlite3
 from datetime import date, datetime
-from analyze_pixel import DB_PATH, open_db
+from analyze_pixel import DB_PATH
 
 from flask import Flask, abort, make_response, render_template, request
 
@@ -88,7 +89,7 @@ def query_hits(
     if not os.path.exists(db_path):
         return []
 
-    conn = open_db(db_path)
+    conn = sqlite3.connect(db_path)
 
     EXCLUDE_PIXELS = ("robots.txt", ".env")
 
@@ -105,13 +106,7 @@ def query_hits(
 
     rows = conn.execute(
         f"""
-        SELECT h.pixel, h.domain, SUM(h.count) AS total,
-               (
-                   SELECT ru.url FROM referrer_urls ru
-                   WHERE ru.pixel = h.pixel AND ru.domain = h.domain
-                   ORDER BY ru.count DESC
-                   LIMIT 1
-               ) AS url
+        SELECT h.pixel, h.domain, SUM(h.count) AS total
         FROM hits h
         WHERE h.date >= ? AND h.date <= ?
         AND h.pixel NOT IN ({",".join("?" * len(EXCLUDE_PIXELS))})
@@ -128,7 +123,7 @@ def query_hits(
     conn.close()
 
     results = []
-    for pixel, domain, total, url in rows:
+    for pixel, domain, total in rows:
         label = os.path.splitext(pixel)[0]
         match = LABEL_PK.match(label)
         results.append(
@@ -137,7 +132,6 @@ def query_hits(
                 "pk": match.group(1) if match else None,
                 "referrer": domain,
                 "hits": total,
-                "url": url,
                 "search_term": f"{label} site:{domain}",
             }
         )

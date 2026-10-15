@@ -150,7 +150,7 @@ footer {
             <tr>
                 <td class="rank">{{ loop.index }}</td>
                 <td class="label" title="{{ row.label }}">{% if row.pk %}<a href="https://groundup.org.za/newsbypk/{{ row.pk }}/">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
-                <td class="referrer"><a href="{% if row.url %}{{ row.url }}{% else %}https://duckduckgo.com/?q={{ row.search_term | urlencode }}{% endif %}">{{ row.referrer }}</a></td>
+                <td class="referrer"><a href="https://duckduckgo.com/?q={{ row.search_term | urlencode }}">{{ row.referrer }}</a></td>
                 <td class="hits">{{ "{:,}".format(row.hits) }}</td>
             </tr>
             {% else %}
