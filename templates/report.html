@@ -94,6 +94,8 @@ td.label a { color: inherit; text-decoration: none; }
 td.label a:hover { text-decoration: underline; }
 
 td.referrer { color: var(--accent); font-size: 0.85rem; }
+td.referrer a { color: inherit; text-decoration: none; }
+td.referrer a:hover { text-decoration: underline; }
 
 td.hits {
     font-family: 'IBM Plex Mono', monospace;
@@ -148,7 +150,7 @@ footer {
             <tr>
                 <td class="rank">{{ loop.index }}</td>
                 <td class="label" title="{{ row.label }}">{% if row.pk %}<a href="https://groundup.org.za/newsbypk/{{ row.pk }}/">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
-                <td class="referrer">{{ row.referrer }}</td>
+                <td class="referrer"><a href="{% if row.url %}{{ row.url }}{% else %}https://duckduckgo.com/?q={{ row.search_term | urlencode }}{% endif %}">{{ row.referrer }}</a></td>
                 <td class="hits">{{ "{:,}".format(row.hits) }}</td>
             </tr>
             {% else %}

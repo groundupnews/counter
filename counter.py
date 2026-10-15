@@ -21,9 +21,8 @@ Via Gunicorn:
 import argparse
 import os
 import re
-import sqlite3
 from datetime import date, datetime
-from analyze_pixel import DB_PATH
+from analyze_pixel import DB_PATH, open_db
 
 from flask import Flask, abort, make_response, render_template, request
 
@@ -83,7 +82,7 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
     if not os.path.exists(db_path):
         return []
 
-    conn = sqlite3.connect(db_path)
+    conn = open_db(db_path)
 
     EXCLUDE_PIXELS = ("robots.txt", ".env")
 
@@ -92,13 +91,19 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
 
     rows = conn.execute(
         f"""
-        SELECT pixel, domain, SUM(count) AS total
-        FROM hits
-        WHERE date >= ? AND date <= ?
-        AND pixel NOT IN ({",".join("?" * len(EXCLUDE_PIXELS))})
+        SELECT h.pixel, h.domain, SUM(h.count) AS total,
+               (
+                   SELECT ru.url FROM referrer_urls ru
+                   WHERE ru.pixel = h.pixel AND ru.domain = h.domain
+                   ORDER BY ru.count DESC
+                   LIMIT 1
+               ) AS url
+        FROM hits h
+        WHERE h.date >= ? AND h.date <= ?
+        AND h.pixel NOT IN ({",".join("?" * len(EXCLUDE_PIXELS))})
         {exclude_clause}
-        AND domain != '(no referrer)'
-        GROUP BY pixel, domain
+        AND h.domain != '(no referrer)'
+        GROUP BY h.pixel, h.domain
         ORDER BY total DESC
         LIMIT {TOP_N}
     """,
@@ -108,7 +113,7 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
     conn.close()
 
     results = []
-    for pixel, domain, total in rows:
+    for pixel, domain, total, url in rows:
         label = os.path.splitext(pixel)[0]
         match = LABEL_PK.match(label)
         results.append(
@@ -117,6 +122,8 @@ def query_hits(db_path: str, date_from: str, date_to: str, exclude_sites: list) 
                 "pk": match.group(1) if match else None,
                 "referrer": domain,
                 "hits": total,
+                "url": url,
+                "search_term": f"{label} site:{domain}",
             }
         )
     return results

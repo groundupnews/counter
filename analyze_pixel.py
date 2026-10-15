@@ -74,6 +74,20 @@ def extract_domain(url: str) -> str:
         return "(unknown)"
 
 
+def extract_url(url: str):
+    """Return the referrer URL stripped of query string and fragment, or
+    None if there's no usable referrer URL."""
+    if not url or url == "-":
+        return None
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return None
+    if not parsed.netloc:
+        return None
+    return parsed._replace(query="", fragment="").geturl()
+
+
 def parse_pixel_name(path_part: str) -> str:
     """Return just the filename portion of the request path."""
     return path_part.rstrip("/").split("/")[-1]
@@ -101,6 +115,14 @@ def open_db(db_path: str) -> sqlite3.Connection:
             log_path TEXT PRIMARY KEY,
             inode    INTEGER NOT NULL,
             offset   INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS referrer_urls (
+            pixel   TEXT    NOT NULL,
+            domain  TEXT    NOT NULL,
+            url     TEXT    NOT NULL,
+            count   INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (pixel, domain, url)
         );
     """)
     conn.commit()
@@ -150,6 +172,21 @@ def upsert_hits(conn: sqlite3.Connection, batch: dict) -> None:
     conn.commit()
 
 
+def upsert_referrer_urls(conn: sqlite3.Connection, batch: dict) -> None:
+    """batch: { (pixel, domain, url): count }"""
+    conn.executemany(
+        """
+        INSERT INTO referrer_urls (pixel, domain, url, count) VALUES (?, ?, ?, ?)
+        ON CONFLICT(pixel, domain, url) DO UPDATE SET count = count + excluded.count
+    """,
+        [
+            (pixel, domain, url, count)
+            for (pixel, domain, url), count in batch.items()
+        ],
+    )
+    conn.commit()
+
+
 # ── Core processing ───────────────────────────────────────────────────────────
 
 
@@ -159,6 +196,7 @@ def process_file(conn: sqlite3.Connection, file_path: str, start_offset: int) ->
     database, and return the new EOF offset.
     """
     batch = defaultdict(int)
+    url_batch = defaultdict(int)
     skipped = 0
 
     with open(file_path, encoding="utf-8", errors="replace") as fh:
@@ -179,10 +217,15 @@ def process_file(conn: sqlite3.Connection, file_path: str, start_offset: int) ->
             pixel = parse_pixel_name(path_part)
             domain = extract_domain(referrer)
             batch[(pixel, domain, date)] += 1
+            url = extract_url(referrer)
+            if url:
+                url_batch[(pixel, domain, url)] += 1
         new_offset = fh.tell()
 
     if batch:
         upsert_hits(conn, batch)
+    if url_batch:
+        upsert_referrer_urls(conn, url_batch)
 
     lines_processed = sum(batch.values())
     print(
