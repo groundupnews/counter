@@ -147,7 +147,7 @@ footer {
             {% for row in rows %}
             <tr>
                 <td class="rank">{{ loop.index }}</td>
-                <td class="label">{% if row.pk %}<a href="https://groundup.org.za/newsbypk/{{ row.pk }}/">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
+                <td class="label" title="{{ row.label }}">{% if row.pk %}<a href="https://groundup.org.za/newsbypk/{{ row.pk }}/">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
                 <td class="referrer">{{ row.referrer }}</td>
                 <td class="hits">{{ "{:,}".format(row.hits) }}</td>
             </tr>
