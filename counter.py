@@ -5,8 +5,8 @@ Routes
 ------
 GET /pixels/<name>          Serve a 1x1 transparent GIF (the tracking pixel)
 GET /stats/                 Date range + exclusion form
-GET /stats/YYYYMMDD/YYYYMMDD[?exclude=domain&exclude=domain]
-                            HTML report of top 50 republished articles
+GET /stats/YYYYMMDD/YYYYMMDD[?exclude=domain&include=domain&page=N]
+                            HTML report of republished articles, paged
 
 Usage
 -----
@@ -22,7 +22,7 @@ import argparse
 import os
 import re
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from analyze_pixel import DB_PATH
 
 from flask import Flask, abort, make_response, render_template, request
@@ -39,7 +39,7 @@ EXCLUDE_SITES = [
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-TOP_N = 200
+PAGE_SIZE = 500
 
 # Pixel labels for republished articles are prefixed with the article's pk,
 # e.g. "17291_e_tired-waiting-for-government-pe".
@@ -115,7 +115,6 @@ def query_hits(
         AND h.domain != '(no referrer)'
         GROUP BY h.pixel, h.domain
         ORDER BY total DESC
-        LIMIT {TOP_N}
     """,
         (date_from, date_to, *EXCLUDE_PIXELS, *exclude_sites, *include_sites),
     ).fetchall()
@@ -162,21 +161,30 @@ def stats_report(from_str: str, to_str: str):
     if date_from > date_to:
         abort(400, "date_from must be on or before date_to.")
 
-    exclude_sites = request.args.getlist("exclude") or ""
-    include_sites = request.args.getlist("include") or ""
+    exclude_sites = request.args.getlist("exclude")
+    include_sites = request.args.getlist("include")
     rows = query_hits(app.config["DB_PATH"], date_from, date_to, exclude_sites, include_sites)
+
+    num_pages = max(1, -(-len(rows) // PAGE_SIZE))
+    page = min(max(1, request.args.get("page", 1, type=int)), num_pages)
+    offset = (page - 1) * PAGE_SIZE
 
     fmt = lambda d: datetime.strptime(d, "%Y-%m-%d").strftime("%-d %B %Y")
     return render_template(
         "report.html",
-        rows=rows,
-        top_n=TOP_N,
+        rows=rows[offset : offset + PAGE_SIZE],
+        num_rows=len(rows),
+        page=page,
+        num_pages=num_pages,
+        offset=offset,
+        from_str=from_str,
+        to_str=to_str,
         date_from_label=fmt(date_from),
         date_to_label=fmt(date_to),
         total_hits=sum(r["hits"] for r in rows),
         exclude_sites=exclude_sites,
         include_sites=include_sites,
-        generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
     )
 
 

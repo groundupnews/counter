@@ -112,6 +112,17 @@ tr.empty-row td {
     font-style: italic;
 }
 
+.pager {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+}
+
+.pager a { color: var(--accent); text-decoration: none; }
+.pager a:hover { text-decoration: underline; }
+
 footer {
     max-width: var(--col-w);
     margin: 2.5rem auto 0;
@@ -127,10 +138,10 @@ footer {
 {% block content %}
 <header>
     <p class="kicker">Republication Analytics</p>
-    <h1>Top {{ top_n }} Republished Articles</h1>
+    <h1>Republished Articles</h1>
     <div class="meta">
         <span class="meta-item">Period &nbsp;<strong>{{ date_from_label }} &ndash; {{ date_to_label }}</strong></span>
-        <span class="meta-item">Articles &nbsp;<strong>{{ rows | length }}</strong></span>
+        <span class="meta-item">Articles &nbsp;<strong>{{ num_rows }}</strong></span>
         <span class="meta-item">Total hits &nbsp;<strong>{{ "{:,}".format(total_hits) }}</strong></span>
     </div>
 </header>
@@ -148,7 +159,7 @@ footer {
         <tbody>
             {% for row in rows %}
             <tr>
-                <td class="rank">{{ loop.index }}</td>
+                <td class="rank">{{ offset + loop.index }}</td>
                 <td class="label" title="{{ row.label }}">{% if row.pk %}<a href="https://groundup.org.za/newsbypk/{{ row.pk }}/">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
                 <td class="referrer"><a href="https://duckduckgo.com/?q={{ row.search_term | urlencode }}">{{ row.referrer }}</a></td>
                 <td class="hits">{{ "{:,}".format(row.hits) }}</td>
@@ -160,6 +171,14 @@ footer {
             {% endfor %}
         </tbody>
     </table>
+    {% if num_pages > 1 %}
+    {% set args = dict(from_str=from_str, to_str=to_str, exclude=exclude_sites, include=include_sites) %}
+    <nav class="pager">
+        {% if page > 1 %}<a href="{{ url_for('stats_report', page=page - 1, **args) }}">&larr; Previous</a> &middot;{% endif %}
+        Page {{ page }} of {{ num_pages }}
+        {% if page < num_pages %}&middot; <a href="{{ url_for('stats_report', page=page + 1, **args) }}">Next &rarr;</a>{% endif %}
+    </nav>
+    {% endif %}
 </main>
 <footer>
     Generated {{ generated_at }} UTC

@@ -20,7 +20,7 @@ import sqlite3
 import sys
 from datetime import datetime
 
-DB_PATH = "/home/groundup/counter/counter.db"
+from analyze_pixel import DB_PATH
 
 
 def parse_arg_date(s: str) -> str:
@@ -48,6 +48,8 @@ def query_hits(db_path: str, date_from: str, date_to: str) -> list:
         SELECT pixel, domain, SUM(count) as total
         FROM hits
         WHERE date >= ? AND date <= ?
+        AND pixel NOT IN ('robots.txt', '.env')
+        AND domain != '(no referrer)'
         GROUP BY pixel, domain
         ORDER BY total DESC
         LIMIT 50
