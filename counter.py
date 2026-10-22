@@ -35,6 +35,7 @@ EXCLUDE_SITES = [
     "www.groundup.org.za",
     "groundup.news",
     "www.groundup.news",
+    "republish.groundup.org.za",
 ]
 
 # ── Configuration ─────────────────────────────────────────────────────────────
