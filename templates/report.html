@@ -172,7 +172,7 @@ footer {
         </tbody>
     </table>
     {% if num_pages > 1 %}
-    {% set args = dict(from_str=from_str, to_str=to_str, exclude=exclude_sites, include=include_sites) %}
+    {% set args = dict(from_str=from_str, to_str=to_str, exclude=exclude_sites, include=include_sites, min_hits=min_hits or None) %}
     <nav class="pager">
         {% if page > 1 %}<a href="{{ url_for('stats_report', page=page - 1, **args) }}">&larr; Previous</a> &middot;{% endif %}
         Page {{ page }} of {{ num_pages }}
@@ -186,6 +186,9 @@ footer {
     &nbsp;&middot;&nbsp; Including: {{ include_sites | join(', ') }}
     {% else %}
     &nbsp;&middot;&nbsp; Excluding: {{ exclude_sites | join(', ') if exclude_sites else "nothing" }}
+    {% endif %}
+    {% if min_hits > 0 %}
+    &nbsp;&middot;&nbsp; Min hits: {{ min_hits }}
     {% endif %}
 </footer>
 {% endblock %}

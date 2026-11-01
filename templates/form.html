@@ -34,7 +34,7 @@ label {
 
 label .required { color: var(--accent); margin-left: 0.2rem; }
 
-input[type="date"], textarea {
+input[type="date"], input[type="number"], textarea {
     width: 100%;
     background: white;
     border: 1px solid var(--rule);
@@ -47,7 +47,7 @@ input[type="date"], textarea {
     appearance: none;
 }
 
-input[type="date"]:focus, textarea:focus {
+input[type="date"]:focus, input[type="number"]:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
 }
@@ -103,6 +103,10 @@ button:hover { background: var(--accent); }
             <textarea id="includes" placeholder="one domain per line"></textarea>
             <p class="hint">One domain per line. Leave blank to show all referrers. If filled in, only these referrers will be shown.</p>
         </div>
+        <div class="field">
+            <label>Minimum hits</label>
+            <input type="number" id="min_hits" value="0" min="0">
+        </div>
         <button type="submit">View Report &rarr;</button>
     </form>
 </div>
@@ -125,6 +129,8 @@ button:hover { background: var(--accent); }
         const params = new URLSearchParams();
         excludes.forEach(site => params.append('exclude', site));
         includes.forEach(site => params.append('include', site));
+        const minHits = parseInt(document.getElementById('min_hits').value, 10);
+        if (minHits > 0) params.append('min_hits', minHits);
         const query = params.toString() ? '?' + params.toString() : '';
         window.location.href = `/stats/${from}/${to}${query}`;
     });

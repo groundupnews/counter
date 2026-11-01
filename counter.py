@@ -5,7 +5,7 @@ Routes
 ------
 GET /pixels/<name>          Serve a 1x1 transparent GIF (the tracking pixel)
 GET /stats/                 Date range + exclusion form
-GET /stats/YYYYMMDD/YYYYMMDD[?exclude=domain&include=domain&page=N]
+GET /stats/YYYYMMDD/YYYYMMDD[?exclude=domain&include=domain&min_hits=N&page=N]
                             HTML report of republished articles, paged
 
 Usage
@@ -86,6 +86,7 @@ def query_hits(
     date_to: str,
     exclude_sites: list,
     include_sites: list,
+    min_hits: int = 0,
 ) -> list:
     if not os.path.exists(db_path):
         return []
@@ -115,9 +116,10 @@ def query_hits(
         {include_clause}
         AND h.domain != '(no referrer)'
         GROUP BY h.pixel, h.domain
+        HAVING total >= ?
         ORDER BY total DESC
     """,
-        (date_from, date_to, *EXCLUDE_PIXELS, *exclude_sites, *include_sites),
+        (date_from, date_to, *EXCLUDE_PIXELS, *exclude_sites, *include_sites, min_hits),
     ).fetchall()
 
     conn.close()
@@ -164,7 +166,10 @@ def stats_report(from_str: str, to_str: str):
 
     exclude_sites = request.args.getlist("exclude")
     include_sites = request.args.getlist("include")
-    rows = query_hits(app.config["DB_PATH"], date_from, date_to, exclude_sites, include_sites)
+    min_hits = request.args.get("min_hits", 0, type=int)
+    rows = query_hits(
+        app.config["DB_PATH"], date_from, date_to, exclude_sites, include_sites, min_hits
+    )
 
     num_pages = max(1, -(-len(rows) // PAGE_SIZE))
     page = min(max(1, request.args.get("page", 1, type=int)), num_pages)
@@ -185,6 +190,7 @@ def stats_report(from_str: str, to_str: str):
         total_hits=sum(r["hits"] for r in rows),
         exclude_sites=exclude_sites,
         include_sites=include_sites,
+        min_hits=min_hits,
         generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
     )
 
