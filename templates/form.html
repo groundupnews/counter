@@ -96,12 +96,12 @@ button:hover { background: var(--accent); }
         <div class="field">
             <label>Exclude referrers</label>
             <textarea id="excludes" placeholder="one domain per line">{{ default_excludes | join('\n') }}</textarea>
-            <p class="hint">One domain per line. Leave blank to include all referrers.</p>
+            <p class="hint">One domain per line. Use * as a wildcard, e.g. *.groundup.org.za. Leave blank to include all referrers.</p>
         </div>
         <div class="field">
             <label>Include referrers</label>
             <textarea id="includes" placeholder="one domain per line"></textarea>
-            <p class="hint">One domain per line. Leave blank to show all referrers. If filled in, only these referrers will be shown.</p>
+            <p class="hint">One domain per line. Use * as a wildcard. Leave blank to show all referrers. If filled in, only these referrers will be shown.</p>
         </div>
         <div class="field">
             <label>Minimum hits</label>

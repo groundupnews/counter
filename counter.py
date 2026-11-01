@@ -31,11 +31,10 @@ from flask import Flask, abort, make_response, render_template, request
 # These are pre-filled in the form but can be overridden per-request.
 
 EXCLUDE_SITES = [
+    "*.groundup.org.za",
     "groundup.org.za",
-    "www.groundup.org.za",
+    "*.groundup.news",
     "groundup.news",
-    "www.groundup.news",
-    "republish.groundup.org.za",
 ]
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -95,16 +94,10 @@ def query_hits(
 
     EXCLUDE_PIXELS = ("robots.txt", ".env")
 
-    exclude_clause = (
-        f"AND h.domain NOT IN ({','.join('?' * len(exclude_sites))})"
-        if exclude_sites
-        else ""
-    )
-    include_clause = (
-        f"AND h.domain IN ({','.join('?' * len(include_sites))})"
-        if include_sites
-        else ""
-    )
+    # Sites may contain * wildcards, e.g. *.groundup.org.za
+    glob_any = lambda sites: " OR ".join(["lower(h.domain) GLOB lower(?)"] * len(sites))
+    exclude_clause = f"AND NOT ({glob_any(exclude_sites)})" if exclude_sites else ""
+    include_clause = f"AND ({glob_any(include_sites)})" if include_sites else ""
 
     rows = conn.execute(
         f"""
