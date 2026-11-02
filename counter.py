@@ -19,10 +19,13 @@ Via Gunicorn:
 """
 
 import argparse
+import csv
+import io
 import os
 import re
 import sqlite3
 from datetime import date, datetime, timezone
+from urllib.parse import urlencode
 from analyze_pixel import DB_PATH
 
 from flask import Flask, abort, make_response, render_template, request
@@ -163,6 +166,21 @@ def stats_report(from_str: str, to_str: str):
     rows = query_hits(
         app.config["DB_PATH"], date_from, date_to, exclude_sites, include_sites, min_hits
     )
+
+    if request.args.get("format") == "csv":
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["article_id", "article", "article_url", "referrer", "hits", "search_url"])
+        for r in rows:
+            url = f"https://groundup.org.za/newsbypk/{r['pk']}/" if r["pk"] else ""
+            search = "https://duckduckgo.com/?" + urlencode({"q": r["search_term"]})
+            w.writerow([r["pk"] or "", r["label"], url, r["referrer"], r["hits"], search])
+        resp = make_response(out.getvalue())
+        resp.headers["Content-Type"] = "text/csv"
+        resp.headers["Content-Disposition"] = (
+            f"attachment; filename=republished_{from_str}_{to_str}.csv"
+        )
+        return resp
 
     num_pages = max(1, -(-len(rows) // PAGE_SIZE))
     page = min(max(1, request.args.get("page", 1, type=int)), num_pages)
