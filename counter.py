@@ -91,7 +91,7 @@ def query_hits(
     min_hits: int = 0,
 ) -> list:
     if not os.path.exists(db_path):
-        return []
+        abort(500, f"Database not found: {db_path}")
 
     conn = sqlite3.connect(db_path)
 
